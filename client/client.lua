@@ -20,14 +20,10 @@ local craftcost
 local cal = false
 local modelz = false
 local next = next
-local inshop = false
-local currentshop
-local category
 local OpenStores
 local CloseStores
 local blip
 local OpenGroup = GetRandomIntInRange(0, 0xffffff)
-local CloseGroup = GetRandomIntInRange(0, 0xffffff)
 
 local progressbar = exports.vorp_progressbar:initiate()
 local Core = exports.vorp_core:GetCore()
@@ -98,18 +94,7 @@ local function PromptSetUp()
 	UiPromptRegisterEnd(OpenStores)
 end
 
-local function PromptSetUp2()
-	local str = "Store Closed"
-	CloseStores = UiPromptRegisterBegin()
-	UiPromptSetControlAction(CloseStores, Config.General.keys["G"])
-	str = VarString(10, 'LITERAL_STRING', str)
-	UiPromptSetText(CloseStores, str)
-	UiPromptSetEnabled(CloseStores, true)
-	UiPromptSetVisible(CloseStores, true)
-	UiPromptSetStandardMode(CloseStores, true)
-	UiPromptSetGroup(CloseStores, CloseGroup, 0)
-	UiPromptRegisterEnd(CloseStores)
-end
+
 
 RegisterNetEvent("vorp:SelectedCharacter")
 AddEventHandler("vorp:SelectedCharacter", function()
@@ -355,18 +340,7 @@ AddEventHandler("onResourceStop", function(resourceName)
 			DeleteEntity(wepobject)
 		end
 
-		for storeId, store in pairs(Config.Stores) do
-			if Config.Stores[storeId].BlipHandle then
-				RemoveBlip(Config.Stores[storeId].BlipHandle)
-				Config.Stores[storeId].BlipHandle = nil
-			end
-			if Config.Stores[storeId].NPC then
-				DeleteEntity(Config.Stores[storeId].NPC)
-				DeletePed(Config.Stores[storeId].NPC)
-				SetEntityAsNoLongerNeeded(Config.Stores[storeId].NPC)
-				Config.Stores[storeId].NPC = nil
-			end
-		end
+
 	end
 end
 )
@@ -445,7 +419,7 @@ CreateThread(function()
 	while true do
 		local sleep = 1000
 
-		if not createdobject and not crafting and not inshop then
+		if not createdobject and not crafting then
 			local coords = GetEntityCoords(PlayerPedId())
 
 			for k, v in pairs(Config.General.customizationLocations) do
@@ -526,11 +500,12 @@ end)
 
 CreateThread(function()
 	repeat Wait(1000) until LocalPlayer.state.IsInSession
-	PromptSetUp2()
+	PromptSetUp()
+
 	while true do
 		local letSleep = 1000
 
-		if not crafting and not createdobject and not inshop then
+		if not crafting and not createdobject then
 			local coords = GetEntityCoords(PlayerPedId())
 
 			for k, v in pairs(Config.General.craftinglocation) do
@@ -563,150 +538,10 @@ CreateThread(function()
 	end
 end)
 
-local function AddBlip(Store)
-	if Config.Stores[Store].showblip then
-		Config.Stores[Store].BlipHandle = BlipAddForCoords(1664425300, Config.Stores[Store].Pos.x, Config.Stores[Store].Pos.y, Config.Stores[Store].Pos.z)
-		SetBlipSprite(Config.Stores[Store].BlipHandle, Config.Stores[Store].blipsprite, true)
-		SetBlipScale(Config.Stores[Store].BlipHandle, 0.2)
-		SetBlipName(Config.Stores[Store].BlipHandle, Config.Stores[Store].BlipName)
-	end
-end
 
-local function SpawnNPC(Store)
-	local v = Config.Stores[Store]
-	if v.SpawnNPC then
-		LoadModel(v.NpcModel)
-		local npc = CreatePed(v.NpcModel, v.Pos.x, v.Pos.y, v.Pos.z, v.Pos.h or 0.0, false, true, true, true)
-		Citizen.InvokeNative(0x283978A15512B2FE, npc, true)
-		PlaceEntityOnGroundProperly(npc, false)
-		SetEntityCanBeDamaged(npc, false)
-		SetEntityInvincible(npc, true)
-		Wait(500)
-		FreezeEntityPosition(npc, true)
-		SetBlockingOfNonTemporaryEvents(npc, true)
-		Config.Stores[Store].NPC = npc
-	end
-end
-CreateThread(function()
-	repeat Wait(1000) until LocalPlayer.state.IsInSession
 
-	PromptSetUp()
-	if not Config.General.weaponshops then
-		return
-	end
-	while true do
-		local player = PlayerPedId()
-		local coords = GetEntityCoords(player)
-		local dead = IsEntityDead(player)
-		local hour = GetClockHours()
-		local sleep = 1000
 
-		if not inshop and not dead then
-			for storeId, storeConfig in pairs(Config.Stores) do
-				if storeConfig.StoreHoursAllowed then
-					if hour >= storeConfig.StoreClose or hour < storeConfig.StoreOpen then
-						if Config.Stores[storeId].BlipHandle then
-							RemoveBlip(Config.Stores[storeId].BlipHandle)
-							Config.Stores[storeId].BlipHandle = nil
-						end
 
-						if Config.Stores[storeId].NPC then
-							DeleteEntity(Config.Stores[storeId].NPC)
-							DeletePed(Config.Stores[storeId].NPC)
-							SetEntityAsNoLongerNeeded(Config.Stores[storeId].NPC)
-							Config.Stores[storeId].NPC = nil
-						end
-
-						local coordsDist = vector3(coords.x, coords.y, coords.z)
-						local coordsStore = vector3(storeConfig.Pos.x, storeConfig.Pos.y, storeConfig.Pos.z)
-						local distance = #(coordsDist - coordsStore)
-
-						if (distance <= 3.0) then -- check distance
-							sleep = 0
-							local Label = VarString(10, 'LITERAL_STRING', storeConfig.PromptName)
-							UiPromptSetActiveGroupThisFrame(CloseGroup, Label, 0, 0, 0, 0)
-							local label2 = VarString(10, 'LITERAL_STRING', Config.Language.closed .. storeConfig.StoreOpen .. Config.Language.am .. storeConfig.StoreClose .. Config.Language.pm)
-							UiPromptSetActiveGroupThisFrame(CloseGroup, label2, 0, 0, 0, 0)
-
-							if Citizen.InvokeNative(0xC92AC953F0A982AE, CloseStores) then
-								TriggerEvent("vorp:TipRight", Config.Language.closed .. storeConfig.StoreOpen .. Config.Language.am .. storeConfig.StoreClose .. Config.Language.pm, 3000)
-							end
-						end
-					elseif hour >= storeConfig.StoreOpen then
-						if not Config.Stores[storeId].BlipHandle and storeConfig.showblip then
-							AddBlip(storeId)
-						end
-
-						local coordsDist = vector3(coords.x, coords.y, coords.z)
-						local coordsStore = vector3(storeConfig.Pos.x, storeConfig.Pos.y, storeConfig.Pos.z)
-						local distance = #(coordsDist - coordsStore)
-
-						if distance <= 50 then
-							if not Config.Stores[storeId].NPC and storeConfig.SpawnNPC then
-								SpawnNPC(storeId)
-							end
-						else
-							if Config.Stores[storeId].NPC then
-								DeleteEntity(Config.Stores[storeId].NPC)
-								DeletePed(Config.Stores[storeId].NPC)
-								SetEntityAsNoLongerNeeded(Config.Stores[storeId].NPC)
-								Config.Stores[storeId].NPC = nil
-							end
-						end
-
-						if (distance <= 3.0) then -- check distance
-							sleep = 0
-							local Label = VarString(10, 'LITERAL_STRING', storeConfig.PromptName)
-							UiPromptSetActiveGroupThisFrame(OpenGroup, Label, 0, 0, 0, 0)
-
-							if Citizen.InvokeNative(0xC92AC953F0A982AE, OpenStores) then
-								currentshop = storeId
-								inshop = true
-								WarMenu.OpenMenu('shop')
-								TaskStandStill(player, -1)
-							end
-						end
-					end
-				else
-					if not Config.Stores[storeId].BlipHandle and storeConfig.showblip then
-						AddBlip(storeId)
-					end
-
-					local coordsDist = vector3(coords.x, coords.y, coords.z)
-					local coordsStore = vector3(storeConfig.Pos.x, storeConfig.Pos.y, storeConfig.Pos.z)
-					local distance = #(coordsDist - coordsStore)
-
-					if distance <= 50 then
-						if not Config.Stores[storeId].NPC and storeConfig.SpawnNPC then
-							SpawnNPC(storeId)
-						end
-					else
-						if Config.Stores[storeId].NPC then
-							DeleteEntity(Config.Stores[storeId].NPC)
-							DeletePed(Config.Stores[storeId].NPC)
-							SetEntityAsNoLongerNeeded(Config.Stores[storeId].NPC)
-							Config.Stores[storeId].NPC = nil
-						end
-					end
-
-					if (distance <= 3.0) then -- check distance
-						sleep = 0
-						local Label = VarString(10, 'LITERAL_STRING', storeConfig.PromptName)
-						UiPromptSetActiveGroupThisFrame(OpenGroup, Label, 0, 0, 0, 0)
-
-						if Citizen.InvokeNative(0xC92AC953F0A982AE, OpenStores) then -- iff all pass open menu
-							currentshop = storeId
-							inshop = true
-							WarMenu.OpenMenu('shop')
-							TaskStandStill(player, -1)
-						end
-					end
-				end
-			end
-		end
-		Wait(sleep)
-	end
-end)
 
 
 
@@ -740,11 +575,7 @@ CreateThread(function()
 
 	WarMenu.CreateMenu('wepcomp', Config.Language.customization)
 	WarMenu.CreateMenu('crafting', Config.Language.crafting)
-	WarMenu.CreateMenu('shop', Config.Language.shop)
-	WarMenu.CreateSubMenu('weaponz', 'shop', Config.Language.buyweapons)
-	WarMenu.CreateSubMenu('weaponz2', 'shop', Config.Language.buyweapons)
-	WarMenu.CreateSubMenu('ammoz', 'shop', Config.Language.buyammo)
-	WarMenu.CreateSubMenu('ammoz2', 'shop', Config.Language.buyammo)
+
 	WarMenu.CreateSubMenu('wepcraft', 'crafting', Config.Language.weaponcrafting)
 	WarMenu.CreateSubMenu('wepcraft2', 'crafting', Config.Language.weaponcrafting)
 	WarMenu.CreateSubMenu('wepcraft3', 'crafting', Config.Language.weaponcrafting)
@@ -792,68 +623,8 @@ CreateThread(function()
 			WarMenu.Button(Config.Language.total .. sum .. Config.Language.dollar)
 			WarMenu.MenuButton(Config.Language.buyselect, "confirmbuy")
 			WarMenu.MenuButton(Config.Language.exitmenu, "confirmexit")
-		elseif WarMenu.IsMenuOpened('shop') then
-			if WarMenu.MenuButton(Config.Language.buyweapons, "weaponz") then end
-			if WarMenu.MenuButton(Config.Language.buyammo, "ammoz") then end
-			if WarMenu.Button(Config.Language.exitmenu) then
-				FreezeEntityPosition(PlayerPedId(), false)
-				inshop = false
-				currentshop = nil
-				WarMenu.CloseMenu()
-				GetJob = false
-			end
-		elseif WarMenu.IsMenuOpened('weaponz') then
-			for k, v in pairs(Config.Stores) do
-				if k == currentshop then
-					for l, m in pairs(v.weapons) do
-						if WarMenu.MenuButton("" .. l .. "", "weaponz2") then
-							category = l
-						end
-					end
-				end
-			end
-		elseif WarMenu.IsMenuOpened('ammoz') then
-			for k, v in pairs(Config.Stores) do
-				if k == currentshop then
-					for l, m in pairs(v.ammo) do
-						if WarMenu.MenuButton("" .. l .. "", "ammoz2") then
-							category = l
-						end
-					end
-				end
-			end
-		elseif WarMenu.IsMenuOpened('ammoz2') then
-			local v = Config.Stores[currentshop]
-			local m = v.ammo[category] or {}
-			for j, d in pairs(m) do
-				if WarMenu.MenuButton("" .. j .. " / " .. Config.Language.cost .. d.price .. Config.Language.dollar, "shop") then
-					FreezeEntityPosition(PlayerPedId(), false)
-					inshop = false
-					WarMenu.CloseMenu()
-					GetJob = false
-					TriggerEvent("vorpinputs:getInput", Config.Language.confirm, Config.Language.amount, function(cb)
-						local count = tonumber(cb)
-						if count ~= nil and count ~= 0 and count > 0 then
-							count = math.floor(count) -- prevent decimals
-							TriggerServerEvent("vorp_weapons:buyammo", j, count, currentshop, category)
-						else
-							TriggerEvent("vorp:TipBottom", Config.Language.invalidamount, 4000)
-						end
-					end)
-				end
-			end
-		elseif WarMenu.IsMenuOpened('weaponz2') then
-			local v = Config.Stores[currentshop]
-			local m = v.weapons[category] or {}
-			for weapon, weaponData in pairs(m) do
-				if WarMenu.MenuButton("" .. weapon .. " / " .. Config.Language.cost .. weaponData.price .. Config.Language.dollar, "shop") then
-					inshop = false
-					WarMenu.CloseMenu()
-					GetJob = false
-					FreezeEntityPosition(PlayerPedId(), false)
-					TriggerServerEvent("vorp_weapons:buyweapon", weapon, currentshop, category)
-				end
-			end
+		
+
 		elseif WarMenu.IsMenuOpened('crafting') then
 			WarMenu.MenuButton(Config.Language.weaponcrafting, "wepcraft")
 			WarMenu.MenuButton(Config.Language.ammocrafting, "ammocraft")

@@ -12,7 +12,6 @@ shared_scripts {
   'config/language.lua',
   'config/ammo.lua',
   'config/config.lua',
-  'config/shops.lua',
 }
 
 client_script {
