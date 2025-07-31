@@ -11,10 +11,6 @@ Weapon purchase, crafting, customization script made for VORP Core
 - Restart your server
 
 ## Features
-- **Shops**
-    - Buy weapon/ammo from stores
-    - Configurable blips, store hours etc.
-    - Buy log
 
 - **Weapon Crafting**
     - Craft weapons at designated crafting locations
